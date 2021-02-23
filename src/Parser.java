@@ -14,6 +14,8 @@ public class Parser {
             return this.parse_integer(str, index);
         } else if (term.equals("addition")) {
             return this.parse_addition_expression(str, index);
+        } else if (term.equals("multiplication")) {
+            return this.parse_multiplication_expression(str, index);
         } else if (term.equals("operand")) {
             return this.parse_operand(str, index);
         } else if (term.equals("parenthesis")) {
@@ -23,6 +25,44 @@ public class Parser {
         } else {
             throw new AssertionError("Unexpected term " + term);
         }
+    }
+
+    private Parse parse_multiplication_expression(String str, int index) {
+        Parse parse = this.parse(str, index,"operand");
+        int result = 0;
+        if (parse.equals(Parser.FAIL)) {
+            return Parser.FAIL;
+        }
+        result = parse.getValue();
+        index = parse.getIndex();
+        while (index < str.length() && !parse.equals(Parser.FAIL)) {
+
+            parse = this.parse(str, parse.getIndex(), "space");
+            if (parse.equals(Parser.FAIL)) {break;}
+
+            if (str.charAt(parse.getIndex()) != '*' && str.charAt(parse.getIndex()) != '/') {
+                parse = Parser.FAIL;
+                break;
+            }
+            Character mul_div_operator = str.charAt(parse.getIndex());
+
+            parse = this.parse(str, parse.getIndex() + 1, "space");
+            if (parse.equals(Parser.FAIL)) {break;}
+
+            parse = this.parse(str, parse.getIndex(), "operand");
+            if (parse.equals(Parser.FAIL)) {
+                parse = Parser.FAIL;
+                break;
+            }
+
+            if (mul_div_operator == '*') {
+                result *= parse.getValue();
+            } else if (mul_div_operator == '/') {
+                result /= parse.getValue();
+            }
+            index = parse.getIndex();
+        }
+        return new Parse(result, index);
     }
 
     private Parse parse_space(String str, int index) {
@@ -73,7 +113,7 @@ public class Parser {
     }
 
     private Parse parse_addition_expression(String str, int index) {
-        Parse parse = this.parse(str, index,"operand");
+        Parse parse = this.parse(str, index,"multiplication");
         int result = 0;
         if (parse.equals(Parser.FAIL)) {
             return Parser.FAIL;
@@ -85,20 +125,26 @@ public class Parser {
             parse = this.parse(str, parse.getIndex(), "space");
             if (parse.equals(Parser.FAIL)) {break;}
 
-            if (str.charAt(parse.getIndex()) != '+') {
+            if (str.charAt(parse.getIndex()) != '+' && str.charAt(parse.getIndex()) != '-') {
                 parse = Parser.FAIL;
                 break;
             }
+            Character add_sub_operator = str.charAt(parse.getIndex());
 
             parse = this.parse(str, parse.getIndex() + 1, "space");
             if (parse.equals(Parser.FAIL)) {break;}
 
-            parse = this.parse(str, parse.getIndex(), "operand");
+            parse = this.parse(str, parse.getIndex(), "multiplication");
             if (parse.equals(Parser.FAIL)) {
                 parse = Parser.FAIL;
                 break;
             }
-            result += parse.getValue();
+
+            if (add_sub_operator == '+') {
+                result += parse.getValue();
+            } else if (add_sub_operator == '-') {
+                result -= parse.getValue();
+            }
             index = parse.getIndex();
         }
         return new Parse(result, index);
@@ -179,6 +225,20 @@ public class Parser {
         test(parser, "( )", "parenthesis", Parser.FAIL);
         test(parser, "(  1  + 2+   3    )", "addition", new Parse(6, 19));
         test(parser, "( 3 +4)  + (( 2   +3 )+ 0+( 1+2+  3))+ 9  ", "addition", new Parse(27, 40));
+
+        // add or sub
+        test(parser, "1+1-1", "addition", new Parse(1, 5));
+        test(parser, "1-1+1", "addition", new Parse(1, 5));
+        test(parser, "( 3 +4)  - (( 2   +3 )- 0+( 1-2+  3))+ 9  ", "addition", new Parse(9, 40));
+
+        // mul or div
+        test(parser, "3*4", "multiplication", new Parse(12, 3));
+        test(parser, "8 /    2", "multiplication", new Parse(4, 8));
+        test(parser, "(  1  + 2*   3    )", "addition", new Parse(7, 19));
+        test(parser, "(  (1  + 2) /   3    )", "addition", new Parse(1, 22));
+        test(parser, "( 3 *4)  - (( 2   +3 ) /5- 0+( 1-2+  3))+ 9  ", "addition", new Parse(18, 43));
+        test(parser, "3+*", "addition", new Parse(3, 1));
+        test(parser, "3+3*", "addition", new Parse(6, 3));
 
     }
 
