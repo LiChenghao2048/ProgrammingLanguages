@@ -18,8 +18,22 @@ public class Parser {
             return this.parse_operand(str, index);
         } else if (term.equals("parenthesis")) {
             return this.parse_parenthesis(str, index);
+        } else if (term.equals("space")) {
+            return this.parse_space(str, index);
         } else {
             throw new AssertionError("Unexpected term " + term);
+        }
+    }
+
+    private Parse parse_space(String str, int index) {
+        while (index < str.length() && str.charAt(index) == ' ') {
+            index += 1;
+        }
+
+        if (index < str.length()) {
+            return new Parse(0, index);
+        } else {
+            return Parser.FAIL;
         }
     }
 
@@ -39,14 +53,23 @@ public class Parser {
         if (str.charAt(index) != '(') {
             return Parser.FAIL;
         }
-        Parse parse =  this.parse(str, index + 1, "addition");
+
+        Parse parse = this.parse(str, index + 1, "space");
+        if (parse.equals(Parser.FAIL)) {return Parser.FAIL;}
+
+        parse =  this.parse(str, parse.getIndex(), "addition");
         if (parse.equals(Parser.FAIL)) {
             return Parser.FAIL;
         }
+        int result = parse.getValue();
+
+        parse = this.parse(str, parse.getIndex(), "space");
+        if (parse.equals(Parser.FAIL)) {return Parser.FAIL;}
+
         if (str.charAt(parse.getIndex()) != ')') {
-            return  Parser.FAIL;
+            return Parser.FAIL;
         }
-        return new Parse(parse.getValue(), parse.getIndex() + 1);
+        return new Parse(result, parse.getIndex() + 1);
     }
 
     private Parse parse_addition_expression(String str, int index) {
@@ -59,11 +82,18 @@ public class Parser {
         index = parse.getIndex();
         while (index < str.length() && !parse.equals(Parser.FAIL)) {
 
-            if (str.charAt(index) != '+') {
+            parse = this.parse(str, parse.getIndex(), "space");
+            if (parse.equals(Parser.FAIL)) {break;}
+
+            if (str.charAt(parse.getIndex()) != '+') {
                 parse = Parser.FAIL;
                 break;
             }
-            parse = this.parse(str, parse.getIndex() + 1, "operand");
+
+            parse = this.parse(str, parse.getIndex() + 1, "space");
+            if (parse.equals(Parser.FAIL)) {break;}
+
+            parse = this.parse(str, parse.getIndex(), "operand");
             if (parse.equals(Parser.FAIL)) {
                 parse = Parser.FAIL;
                 break;
@@ -106,7 +136,7 @@ public class Parser {
         test(parser, "2021", "integer", new Parse(2021, 4));
         test(parser, "b", "integer", Parser.FAIL);
         test(parser, "", "integer", Parser.FAIL);
-        //addition tests
+        // addition tests
         test(parser, "b", "addition", Parser.FAIL);
         test(parser, "", "addition", Parser.FAIL);
         test(parser, "3-", "addition", new Parse(3, 1));
@@ -121,6 +151,7 @@ public class Parser {
         test(parser, "0+42", "addition", new Parse(42, 4));
         test(parser, "123+234+345", "addition", new Parse(702, 11));
         // parenthesis tests
+        test(parser, "()", "parenthesis", Parser.FAIL);
         test(parser, "(0)", "parenthesis", new Parse(0, 3));
         test(parser, "(0+0)", "parenthesis", new Parse(0, 5));
         test(parser, "(1+2)", "parenthesis", new Parse(3, 5));
@@ -132,6 +163,23 @@ public class Parser {
         // end-to-end test
         test(parser, "(3+4)+((2+3)+0+(1+2+3))+9", "addition", new Parse(27, 25));
         test(parser, "1+1+b", "addition", new Parse(2, 3));
+
+        // space tests
+        test(parser, " ", "space", Parser.FAIL);
+        test(parser, "   ", "space", Parser.FAIL);
+        test(parser, "", "space", Parser.FAIL);
+        test(parser, "3 ", "integer", new Parse(3, 1));
+        test(parser, "  3 ", "integer", Parser.FAIL);
+        test(parser, "1+ 2", "addition", new Parse(3, 4));
+        test(parser, "3 + 4 ", "addition", new Parse(7, 5));
+        test(parser, "3 + 4   +     ", "addition", new Parse(7, 5));
+        test(parser, "5     +    6", "addition", new Parse(11, 12));
+        test(parser, "5   +  6   ", "addition", new Parse(11, 8));
+        test(parser, "(  5 )", "parenthesis", new Parse(5, 6));
+        test(parser, "( )", "parenthesis", Parser.FAIL);
+        test(parser, "(  1  + 2+   3    )", "addition", new Parse(6, 19));
+        test(parser, "( 3 +4)  + (( 2   +3 )+ 0+( 1+2+  3))+ 9  ", "addition", new Parse(27, 40));
+
     }
 
     public static void main(String[] args) {
